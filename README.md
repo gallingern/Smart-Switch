@@ -1,7 +1,7 @@
 # Smart-Switch
 
-Particle Photon app to control relays connected to a light and a heater
-[Partner app](https://github.com/gallingern/Humidity-Temperature-Sunset) for humidity and temperature
+Particle Photon app to control relays connected to a light and a heater.
+See [Partner app](https://github.com/gallingern/Humidity-Temperature-Sunset) for humidity and temperature.
 
 ## Overview
 
