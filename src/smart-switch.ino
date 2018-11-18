@@ -1,11 +1,13 @@
 #include <blynk.h>
+#include "SparkIntervalTimer.h"
+#include "elapsedMillis.h"
 
 const int SWITCH1_PIN = D0;
 const int SWITCH2_PIN = D1;
 const int PST_OFFSET  = -8;
 const int PDT_OFFSET  = -7;
 
-char auth[] = "";
+char auth[] = "4025c2c641f74330a7475890f4f42674";
 int temp_f = 100;
 int sunsetHour = 17; // 5pm
 int sunsetMinute = 0;
@@ -16,6 +18,46 @@ int sleepMinute = 0;
 bool switch1_light = false;
 bool switch2_heat = false;
 BlynkTimer timer;
+
+// Dimmer setup
+int freqStep = 65;
+volatile int counter = 0;         // Variable to use as a counter volatile as it is in an interrupt
+volatile boolean zero_cross = 0;  // Boolean to store a "switch" to tell us if we have crossed zero
+int AC_PIN = D3;                  // Output to Opto Triac
+int PIN_ZERO_CROSS = D2;          // Interrrupt pin
+// Min/Max depends on your circuit
+// This is for my bedside LED lights
+int DIM_MIN = 0; // 90 == on
+int DIM_MAX = 117;
+int dim = DIM_MIN;                // Dimming level (0-128)  0 = on, 128 = 0ff
+IntervalTimer timer_dimmer;
+
+static int MINUTE = 60000; // minute in milliseconds
+bool start_dimmer = false;
+elapsedMillis timeElapsed;
+
+
+// Check for AC zero cross
+void zero_cross_detect() {
+  zero_cross = true;         // set the boolean to true to tell our dimming function that a zero cross has occured
+  counter = 0;
+  digitalWrite(AC_PIN, LOW); // turn off TRIAC (and AC)
+}
+
+
+// Turn on the TRIAC at the appropriate time
+void dim_check() {
+  if(zero_cross == true) {
+    if(counter >= dim) {
+      digitalWrite(AC_PIN, HIGH); // turn on light
+      counter = 0;                // reset time step counter
+      zero_cross = false;         //reset zero cross detection
+    }
+    else {
+      counter++; // increment time step counter
+    }
+  }
+}
 
 
 // get info from other photon
@@ -67,9 +109,16 @@ void updateBlynk() {
 
 
 void setup() {
-  Serial.begin(9600);
+  // Relay setup
   pinMode(SWITCH1_PIN, OUTPUT);
   pinMode(SWITCH2_PIN, OUTPUT);
+
+  // Zero Cross setup
+  pinMode(PIN_ZERO_CROSS, INPUT);
+  pinMode(AC_PIN, OUTPUT);
+  timer_dimmer.begin(dim_check, freqStep, uSec, TIMER5);
+  // Attach an Interupt to Pin 2 (interupt 0) for Zero Cross Detection
+  attachInterrupt(PIN_ZERO_CROSS, zero_cross_detect, RISING);
 
   Particle.variable("temp_f", &temp_f, INT);
   Particle.variable("sunset_hr", &sunsetHour, INT);
@@ -78,6 +127,7 @@ void setup() {
   Particle.variable("wake_minute", &wakeMinute, INT);
   Particle.variable("sleep_hour", &sleepHour, INT);
   Particle.variable("sleep_minute", &sleepMinute, INT);
+  Particle.variable("dimmer", &dim, INT);
 
   Particle.subscribe("temp", myTempHandler, MY_DEVICES);
   Particle.subscribe("hour", myHourHandler, MY_DEVICES);
@@ -176,15 +226,27 @@ void checkLight() {
 
   // ******************** Morning On ********************
   if ((Time.hour() == todayWakeHour) && (Time.minute() == todayWakeMinute)) {
+    // light
     switch1_light = true;
+
+    // dimmer
+    dim = DIM_MAX;
+    timeElapsed = 0;
+    start_dimmer = true;
+
+    // heat
+    int threshold_f = 60; // degrees f
+    if (temp_f < threshold_f) {
+      switch2_heat = true;
+    }
   }
 
-  // Morning off trigger, 8:30a
   int morningOffHour = 8;
   int morningOffMinute = 30;
   // ******************** Morning Off ********************
   if ((Time.hour() == morningOffHour) && (Time.minute() == morningOffMinute)) {
     switch1_light = false;
+    switch2_heat = false;
   }
 
   // ******************** Evening On ********************
@@ -207,32 +269,17 @@ void checkLight() {
 }
 
 
-void checkHeat() {
-  int threshold_f = 60;
-  int hour = Time.hour(); // 0-23
-  int minute = Time.minute(); // 0 - 59
-
-  // weekend
-  if (isWeekend()) {
-    // turn on at 7:00 AM
-    if ((hour == 7) && (minute == 30) && (temp_f < threshold_f)) {
-      switch2_heat = true;
+void checkDimmer() {
+  if (start_dimmer) {
+    // Stop after 30 minutes
+    if (timeElapsed == (MINUTE * 30)) {
+      dim = DIM_MIN;
+      timeElapsed = 0;
+      start_dimmer = false;
     }
-    // turn off at 8:00 AM
-    if ((hour == 8) && (minute == 0)) {
-      switch2_heat = false;
-    }
-  }
-
-  // weekday
-  else {
-    // turn on at 6:00 AM
-    if ((hour == 6) && (minute == 0) && (temp_f < threshold_f)) {
-      switch2_heat = true;
-    }
-    // turn off at 7:00 AM
-    if ((hour == 6) && (minute == 30)) {
-      switch2_heat = false;
+    else {
+      // dim one unit per minute
+      dim = DIM_MAX - (timeElapsed/MINUTE);
     }
   }
 }
@@ -242,7 +289,7 @@ void loop() {
   Time.zone(isDaylightSavingsTime() ? PDT_OFFSET : PST_OFFSET);
 
   checkLight();
-  checkHeat();
+  checkDimmer();
 
   triggerSwitch1();
   triggerSwitch2();

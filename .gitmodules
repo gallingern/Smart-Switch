@@ -1,0 +1,6 @@
+[submodule "lib/SparkIntervalTimer"]
+	path = lib/SparkIntervalTimer
+	url = https://github.com/pkourany/SparkIntervalTimer
+[submodule "lib/elapsedMillis"]
+	path = lib/elapsedMillis
+	url = https://github.com/gallingern/elapsedMillis
