@@ -28,7 +28,7 @@ int PIN_ZERO_CROSS = D2;          // Interrrupt pin
 // Min/Max depends on your circuit
 // This is for my bedside LED lights
 int DIM_MIN = 0; // 90 == on
-int DIM_MAX = 117;
+int DIM_MAX = 128;
 int dim = DIM_MIN;                // Dimming level (0-128)  0 = on, 128 = 0ff
 IntervalTimer timer_dimmer;
 
