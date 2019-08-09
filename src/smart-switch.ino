@@ -1,23 +1,20 @@
 #include <blynk.h>
-#include "SparkIntervalTimer.h"
 #include "elapsedMillis.h"
-
-const int SWITCH1_PIN = D0;
-const int SWITCH2_PIN = D1;
-const int PST_OFFSET  = -8;
-const int PDT_OFFSET  = -7;
+#include "smart-switch.h"
+#include "SparkIntervalTimer.h"
 
 char auth[] = "4025c2c641f74330a7475890f4f42674";
 int temp_f = 100;
 int sunsetHour = 17; // 5pm
 int sunsetMinute = 0;
-int wakeHour = 8;
-int wakeMinute = 0;
+int wakeHour = 6;
+int wakeMinute = 30;
 int sleepHour = 22; // 10pm
 int sleepMinute = 0;
 bool switch1_light = false;
 bool switch2_heat = false;
 BlynkTimer timer;
+
 
 // Dimmer setup
 int freqStep = 65;
@@ -88,6 +85,9 @@ BLYNK_WRITE(V3) {
   sleepHour = t.getStopHour();
   sleepMinute = t.getStopMinute();
 }
+BLYNK_WRITE(V4) {
+  dim = param.asInt();
+}
 
 
 void updateBlynk() {
@@ -105,6 +105,9 @@ void updateBlynk() {
   //seconds from the start of a day. 0 - min, 86399 - max
   int stopAt = ((sleepHour*60) + sleepMinute) * 60;
   Blynk.virtualWrite(V3, startAt, stopAt, tz);
+
+  // dimmer
+  Blynk.virtualWrite(V4, dim);
 }
 
 
@@ -127,7 +130,7 @@ void setup() {
   Particle.variable("wake_minute", &wakeMinute, INT);
   Particle.variable("sleep_hour", &sleepHour, INT);
   Particle.variable("sleep_minute", &sleepMinute, INT);
-  Particle.variable("dimmer", &dim, INT);
+  Particle.variable("dim_level", &dim, INT);
 
   Particle.subscribe("temp", myTempHandler, MY_DEVICES);
   Particle.subscribe("hour", myHourHandler, MY_DEVICES);
@@ -145,10 +148,6 @@ bool isDaylightSavingsTime() {
   int dayOfMonth = Time.day();
   int month = Time.month();
   int dayOfWeek = Time.weekday() - 1; // make Sunday 0 .. Saturday 6
-  const int MARCH = 3;
-  const int APRIL = 4;
-  const int OCTOBER = 10;
-  const int NOVEMBER = 11;
   bool isDaylightSavings = false;
 
   // April to October is DST
@@ -198,12 +197,12 @@ void triggerSwitch2() {
 // True if Saturday or Sunday
 bool isWeekend() {
   int dayOfWeek = Time.weekday();
-  return ((dayOfWeek == 7) || (dayOfWeek == 1));
+  return ((dayOfWeek == SATURDAY) || (dayOfWeek == SUNDAY));
 }
 // True if Friday or Saturday
 bool isWeekendNight() {
   int dayOfWeek = Time.weekday();
-  return ((dayOfWeek == 6) || (dayOfWeek == 7));
+  return ((dayOfWeek == FRIDAY) || (dayOfWeek == SATURDAY));
 }
 
 
@@ -215,8 +214,8 @@ void checkLight() {
 
   // Weekend wake at 8am
   if (isWeekend()) {
-    todayWakeHour = 8;
-    todayWakeMinute = 0;
+    todayWakeHour = 7;
+    todayWakeMinute = 30;
   }
   // Weekend night sleep at 11pm
   if (isWeekendNight()) {
@@ -225,7 +224,9 @@ void checkLight() {
   }
 
   // ******************** Morning On ********************
-  if ((Time.hour() == todayWakeHour) && (Time.minute() == todayWakeMinute)) {
+  if ((Time.hour() == todayWakeHour) &&
+      (Time.minute() == todayWakeMinute) &&
+      (start_dimmer == false)) {
     // light
     switch1_light = true;
 
