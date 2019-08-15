@@ -45,7 +45,9 @@ BLYNK_WRITE(V3) {
   sleep_hour = t.getStopHour();
   sleep_minute = t.getStopMinute();
 }
-
+BLYNK_WRITE(V4) {
+  ZeroCrossDimmer_setDimPercentage(param.asInt());
+}
 
 void updateBlynk() {
   // send temp to blynk app
@@ -62,6 +64,9 @@ void updateBlynk() {
   //seconds from the start of a day. 0 - min, 86399 - max
   int stopAt = ((sleep_hour*60) + sleep_minute) * 60;
   Blynk.virtualWrite(V3, startAt, stopAt, tz);
+
+  // dimmer
+  Blynk.virtualWrite(V4, ZeroCrossDimmer_getDimPercentage());
 }
 
 
