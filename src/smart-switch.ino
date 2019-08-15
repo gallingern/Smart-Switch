@@ -1,60 +1,20 @@
 #include <blynk.h>
-#include "elapsedMillis.h"
 #include "smart-switch.h"
-#include "SparkIntervalTimer.h"
+#include "ZeroCrossDimmer.h"
 
+const int SWITCH1_PIN = D0;
+const int SWITCH2_PIN = D1;
 char auth[] = "4025c2c641f74330a7475890f4f42674";
 int temp_f = 100;
-int sunsetHour = 17; // 5pm
-int sunsetMinute = 0;
-int wakeHour = 6;
-int wakeMinute = 30;
-int sleepHour = 22; // 10pm
-int sleepMinute = 0;
+int sunset_hour = 17; // 5pm
+int sunset_minute = 0;
+int wake_hour = 6;
+int wake_minute = 30;
+int sleep_hour = 22; // 10pm
+int sleep_minute = 0;
 bool switch1_light = false;
 bool switch2_heat = false;
-BlynkTimer timer;
-
-
-// Dimmer setup
-int freqStep = 65;
-volatile int counter = 0;         // Variable to use as a counter volatile as it is in an interrupt
-volatile boolean zero_cross = 0;  // Boolean to store a "switch" to tell us if we have crossed zero
-int AC_PIN = D3;                  // Output to Opto Triac
-int PIN_ZERO_CROSS = D2;          // Interrrupt pin
-// Min/Max depends on your circuit
-// This is for my bedside LED lights
-int DIM_MIN = 0; // 90 == on
-int DIM_MAX = 128;
-int dim = DIM_MIN;                // Dimming level (0-128)  0 = on, 128 = 0ff
-IntervalTimer timer_dimmer;
-
-static int MINUTE = 60000; // minute in milliseconds
-bool start_dimmer = false;
-elapsedMillis timeElapsed;
-
-
-// Check for AC zero cross
-void zero_cross_detect() {
-  zero_cross = true;         // set the boolean to true to tell our dimming function that a zero cross has occured
-  counter = 0;
-  digitalWrite(AC_PIN, LOW); // turn off TRIAC (and AC)
-}
-
-
-// Turn on the TRIAC at the appropriate time
-void dim_check() {
-  if(zero_cross == true) {
-    if(counter >= dim) {
-      digitalWrite(AC_PIN, HIGH); // turn on light
-      counter = 0;                // reset time step counter
-      zero_cross = false;         //reset zero cross detection
-    }
-    else {
-      counter++; // increment time step counter
-    }
-  }
-}
+BlynkTimer blynk_timer;
 
 
 // get info from other photon
@@ -62,10 +22,10 @@ void myTempHandler(const char *event, const char *data) {
   temp_f = atoi(data);
 }
 void myHourHandler(const char *event, const char *data) {
-  sunsetHour = atoi(data);
+  sunset_hour = atoi(data);
 }
 void myMinuteHandler(const char *event, const char *data) {
-  sunsetMinute = atoi(data);
+  sunset_minute = atoi(data);
 }
 
 
@@ -80,13 +40,10 @@ BLYNK_WRITE(V2) {
 }
 BLYNK_WRITE(V3) {
   TimeInputParam t(param);
-  wakeHour = t.getStartHour();
-  wakeMinute = t.getStartMinute();
-  sleepHour = t.getStopHour();
-  sleepMinute = t.getStopMinute();
-}
-BLYNK_WRITE(V4) {
-  dim = param.asInt();
+  wake_hour = t.getStartHour();
+  wake_minute = t.getStartMinute();
+  sleep_hour = t.getStopHour();
+  sleep_minute = t.getStopMinute();
 }
 
 
@@ -101,36 +58,26 @@ void updateBlynk() {
   // timezone
   char tz[] = "US/Pacific";
   //seconds from the start of a day. 0 - min, 86399 - max
-  int startAt = ((wakeHour*60) + wakeMinute) * 60;
+  int startAt = ((wake_hour*60) + wake_minute) * 60;
   //seconds from the start of a day. 0 - min, 86399 - max
-  int stopAt = ((sleepHour*60) + sleepMinute) * 60;
+  int stopAt = ((sleep_hour*60) + sleep_minute) * 60;
   Blynk.virtualWrite(V3, startAt, stopAt, tz);
-
-  // dimmer
-  Blynk.virtualWrite(V4, dim);
 }
 
 
 void setup() {
+  ZeroCrossDimmer_init();
   // Relay setup
   pinMode(SWITCH1_PIN, OUTPUT);
   pinMode(SWITCH2_PIN, OUTPUT);
 
-  // Zero Cross setup
-  pinMode(PIN_ZERO_CROSS, INPUT);
-  pinMode(AC_PIN, OUTPUT);
-  timer_dimmer.begin(dim_check, freqStep, uSec, TIMER5);
-  // Attach an Interupt to Pin 2 (interupt 0) for Zero Cross Detection
-  attachInterrupt(PIN_ZERO_CROSS, zero_cross_detect, RISING);
-
   Particle.variable("temp_f", &temp_f, INT);
-  Particle.variable("sunset_hr", &sunsetHour, INT);
-  Particle.variable("sunset_min", &sunsetMinute, INT);
-  Particle.variable("wake_hour", &wakeHour, INT);
-  Particle.variable("wake_minute", &wakeMinute, INT);
-  Particle.variable("sleep_hour", &sleepHour, INT);
-  Particle.variable("sleep_minute", &sleepMinute, INT);
-  Particle.variable("dim_level", &dim, INT);
+  Particle.variable("sunset_hr", &sunset_hour, INT);
+  Particle.variable("sunset_min", &sunset_minute, INT);
+  Particle.variable("wake_hour", &wake_hour, INT);
+  Particle.variable("wake_minute", &wake_minute, INT);
+  Particle.variable("sleep_hour", &sleep_hour, INT);
+  Particle.variable("sleep_minute", &sleep_minute, INT);
 
   Particle.subscribe("temp", myTempHandler, MY_DEVICES);
   Particle.subscribe("hour", myHourHandler, MY_DEVICES);
@@ -139,39 +86,7 @@ void setup() {
   Blynk.begin(auth);
 
   // Setup a function to be called every second
-  timer.setInterval(1000L, updateBlynk);
-}
-
-
-// Warning, contains a hack
-bool isDaylightSavingsTime() {
-  int dayOfMonth = Time.day();
-  int month = Time.month();
-  int dayOfWeek = Time.weekday() - 1; // make Sunday 0 .. Saturday 6
-  bool isDaylightSavings = false;
-
-  // April to October is DST
-  if ((month >= APRIL) && (month <= OCTOBER)) {
-    isDaylightSavings = true;
-  }
-
-  // March after second Sunday is DST
-  if (month == MARCH) {
-    // voodoo magic
-    if ((dayOfMonth - dayOfWeek) > 8) {
-      isDaylightSavings = true;
-    }
-  }
-
-  // November before first Sunday is DST
-  if (month == NOVEMBER) {
-    // voodoo magic
-    if (!((dayOfMonth - dayOfWeek) > 1)) {
-      isDaylightSavings = true;
-    }
-  }
-
-  return isDaylightSavings;
+  blynk_timer.setInterval(1000L, updateBlynk);
 }
 
 
@@ -194,46 +109,30 @@ void triggerSwitch2() {
 }
 
 
-// True if Saturday or Sunday
-bool isWeekend() {
-  int dayOfWeek = Time.weekday();
-  return ((dayOfWeek == SATURDAY) || (dayOfWeek == SUNDAY));
-}
-// True if Friday or Saturday
-bool isWeekendNight() {
-  int dayOfWeek = Time.weekday();
-  return ((dayOfWeek == FRIDAY) || (dayOfWeek == SATURDAY));
-}
-
-
 void checkLight() {
-  int todayWakeHour = wakeHour;
-  int todayWakeMinute = wakeMinute;
-  int todaySleepHour = sleepHour;
-  int todaySleepMinute = sleepMinute;
+  int today_wake_hour = wake_hour;
+  int today_wake_minute = wake_minute;
+  int today_sleep_hour = sleep_hour;
+  int today_sleep_minute = sleep_minute;
 
-  // Weekend wake at 8am
+  // Weekend wake at 7:30am
   if (isWeekend()) {
-    todayWakeHour = 7;
-    todayWakeMinute = 30;
+    today_wake_hour = 7;
+    today_wake_minute = 30;
   }
-  // Weekend night sleep at 11pm
+  // Weekend night sleep at 10:30pm
   if (isWeekendNight()) {
-    todaySleepHour = 23;
-    todaySleepMinute = 0;
+    today_sleep_hour = 22;
+    today_sleep_minute = 30;
   }
 
   // ******************** Morning On ********************
-  if ((Time.hour() == todayWakeHour) &&
-      (Time.minute() == todayWakeMinute) &&
-      (start_dimmer == false)) {
-    // light
-    switch1_light = true;
+  if ((Time.hour() == today_wake_hour) &&
+      (Time.minute() == today_wake_minute) &&
+      (!ZeroCrossDimmer_isDimming())) {
 
-    // dimmer
-    dim = DIM_MAX;
-    timeElapsed = 0;
-    start_dimmer = true;
+    ZeroCrossDimmer_startDimOn();
+    switch1_light = true;
 
     // heat
     int threshold_f = 60; // degrees f
@@ -242,46 +141,30 @@ void checkLight() {
     }
   }
 
-  int morningOffHour = 8;
-  int morningOffMinute = 30;
+  int morning_off_hour = 8;
+  int morning_off_minute = 30;
   // ******************** Morning Off ********************
-  if ((Time.hour() == morningOffHour) && (Time.minute() == morningOffMinute)) {
+  if ((Time.hour() == morning_off_hour) && (Time.minute() == morning_off_minute)) {
     switch1_light = false;
     switch2_heat = false;
   }
 
   // ******************** Evening On ********************
   // 30 min before sunset trigger (also a hack)
-  if (sunsetMinute < 30) {
-    if ((Time.hour() == (sunsetHour - 1)) && (Time.minute() == (sunsetMinute + 30))) {
+  if (sunset_minute < 30) {
+    if ((Time.hour() == (sunset_hour - 1)) && (Time.minute() == (sunset_minute + 30))) {
       switch1_light = true;
     }
   }
   else {
-    if ((Time.hour() == sunsetHour) && (Time.minute() == (sunsetMinute - 30))) {
+    if ((Time.hour() == sunset_hour) && (Time.minute() == (sunset_minute - 30))) {
       switch1_light = true;
     }
   }
 
   // ******************** Evening Off ********************
-  if ((Time.hour() == todaySleepHour) && (Time.minute() == todaySleepMinute)) {
+  if ((Time.hour() == today_sleep_hour) && (Time.minute() == today_sleep_minute)) {
       switch1_light = false;
-  }
-}
-
-
-void checkDimmer() {
-  if (start_dimmer) {
-    // Stop after 30 minutes
-    if (timeElapsed == (MINUTE * 30)) {
-      dim = DIM_MIN;
-      timeElapsed = 0;
-      start_dimmer = false;
-    }
-    else {
-      // dim one unit per minute
-      dim = DIM_MAX - (timeElapsed/MINUTE);
-    }
   }
 }
 
@@ -290,11 +173,9 @@ void loop() {
   Time.zone(isDaylightSavingsTime() ? PDT_OFFSET : PST_OFFSET);
 
   checkLight();
-  checkDimmer();
-
   triggerSwitch1();
   triggerSwitch2();
 
   Blynk.run();
-  timer.run();
+  blynk_timer.run();
 }
