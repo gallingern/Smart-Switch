@@ -1,9 +1,8 @@
 #include <blynk.h>
-#include "smart-switch.h"
+#include "Calendar.h"
+#include "Switch.h
 #include "ZeroCrossDimmer.h"
 
-const int SWITCH1_PIN = D0;
-const int SWITCH2_PIN = D1;
 char auth[] = "4025c2c641f74330a7475890f4f42674";
 int temp_f = 100;
 int sunset_hour = 17; // 5pm
@@ -12,8 +11,6 @@ int wake_hour = 6;
 int wake_minute = 30;
 int sleep_hour = 22; // 10pm
 int sleep_minute = 0;
-bool switch1_light = false;
-bool switch2_heat = false;
 BlynkTimer blynk_timer;
 
 
@@ -31,12 +28,12 @@ void myMinuteHandler(const char *event, const char *data) {
 
 // Get switch input from blynk app
 BLYNK_WRITE(V1) {
-  if (param.asInt() == 0) { switch1_light = false; }
-  else { switch1_light = true; }
+  if (param.asInt() == 0) { Switch_lightOff(); }
+  else { Switch_lightOn(); }
 }
 BLYNK_WRITE(V2) {
-  if (param.asInt() == 0) { switch2_heat = false; }
-  else { switch2_heat = true; }
+  if (param.asInt() == 0) { Switch_heatOff(); }
+  else { Switch_heatOn(); }
 }
 BLYNK_WRITE(V3) {
   TimeInputParam t(param);
@@ -53,8 +50,8 @@ void updateBlynk() {
   // send temp to blynk app
   Blynk.virtualWrite(V0, temp_f);
   // update button states on blynk app
-  Blynk.virtualWrite(V1, switch1_light);
-  Blynk.virtualWrite(V2, switch2_heat);
+  Blynk.virtualWrite(V1, Switch_getLightState());
+  Blynk.virtualWrite(V2, Switch_getHeatState());
 
   // Update time input
   // timezone
@@ -72,9 +69,7 @@ void updateBlynk() {
 
 void setup() {
   ZeroCrossDimmer_init();
-  // Relay setup
-  pinMode(SWITCH1_PIN, OUTPUT);
-  pinMode(SWITCH2_PIN, OUTPUT);
+  Switch_init();
 
   Particle.variable("temp_f", &temp_f, INT);
   Particle.variable("sunset_hr", &sunset_hour, INT);
@@ -92,25 +87,6 @@ void setup() {
 
   // Setup a function to be called every second
   blynk_timer.setInterval(1000L, updateBlynk);
-}
-
-
-// Relays are active LOW
-void triggerSwitch1() {
-  if (switch1_light) {
-    digitalWrite(SWITCH1_PIN, LOW);
-  }
-  else {
-    digitalWrite(SWITCH1_PIN, HIGH);
-  }
-}
-void triggerSwitch2() {
-  if (switch2_heat) {
-    digitalWrite(SWITCH2_PIN, LOW);
-  }
-  else {
-    digitalWrite(SWITCH2_PIN, HIGH);
-  }
 }
 
 
@@ -137,12 +113,12 @@ void checkLight() {
       (!ZeroCrossDimmer_isDimming())) {
 
     ZeroCrossDimmer_startDimOn();
-    switch1_light = true;
+    Switch_lightOn();
 
     // heat
     int threshold_f = 60; // degrees f
     if (temp_f < threshold_f) {
-      switch2_heat = true;
+      Switch_heatOn();
     }
   }
 
@@ -150,26 +126,29 @@ void checkLight() {
   int morning_off_minute = 30;
   // ******************** Morning Off ********************
   if ((Time.hour() == morning_off_hour) && (Time.minute() == morning_off_minute)) {
-    switch1_light = false;
-    switch2_heat = false;
+    Switch_lightOff();
+    Switch_heatOff();
   }
 
   // ******************** Evening On ********************
   // 30 min before sunset trigger (also a hack)
   if (sunset_minute < 30) {
     if ((Time.hour() == (sunset_hour - 1)) && (Time.minute() == (sunset_minute + 30))) {
-      switch1_light = true;
+      Switch_lightOn();
     }
   }
   else {
     if ((Time.hour() == sunset_hour) && (Time.minute() == (sunset_minute - 30))) {
-      switch1_light = true;
+      Switch_lightOn();
     }
   }
 
   // ******************** Evening Off ********************
   if ((Time.hour() == today_sleep_hour) && (Time.minute() == today_sleep_minute)) {
-      switch1_light = false;
+      Switch_lightOff();
+      // pass Switch_lightOff as function pointer
+      // call at the end of dim
+      // ZeroCrossDimmer_startDimOff()
   }
 }
 
@@ -178,8 +157,6 @@ void loop() {
   Time.zone(isDaylightSavingsTime() ? PDT_OFFSET : PST_OFFSET);
 
   checkLight();
-  triggerSwitch1();
-  triggerSwitch2();
 
   Blynk.run();
   blynk_timer.run();

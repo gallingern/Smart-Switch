@@ -1,5 +1,5 @@
-#ifndef SMART_SWITCH_H
-#define SMART_SWITCH_H
+#ifndef CALENDAR_H
+#define CALENDAR_H
 
 const int PST_OFFSET  = -8;
 const int PDT_OFFSET  = -7;
