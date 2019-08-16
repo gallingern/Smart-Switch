@@ -5,10 +5,9 @@
 
 char auth[] = "4025c2c641f74330a7475890f4f42674";
 int temp_f = 100;
-int sunset_hour = 17; // 5pm
-int sunset_minute = 0;
 // Time in minutes past midnight
 const int hour_to_minute = 60;
+int sunset_time = 17 * hour_to_minute; // 5pm
 int wake_time = 6 * hour_to_minute + 30; // 6:30am
 int sleep_time = 22 * hour_to_minute; // 10pm
 BlynkTimer blynk_timer;
@@ -18,11 +17,8 @@ BlynkTimer blynk_timer;
 void myTempHandler(const char *event, const char *data) {
   temp_f = atoi(data);
 }
-void myHourHandler(const char *event, const char *data) {
-  sunset_hour = atoi(data);
-}
-void myMinuteHandler(const char *event, const char *data) {
-  sunset_minute = atoi(data);
+void mySunsetHandler(const char *event, const char *data) {
+  sunset_time = atoi(data);
 }
 
 
@@ -70,8 +66,7 @@ void setup() {
   Switch_init();
 
   Particle.subscribe("temp", myTempHandler, MY_DEVICES);
-  Particle.subscribe("hour", myHourHandler, MY_DEVICES);
-  Particle.subscribe("minute", myMinuteHandler, MY_DEVICES);
+  Particle.subscribe("sunset", mySunsetHandler, MY_DEVICES);
 
   Blynk.begin(auth);
 
@@ -84,13 +79,10 @@ void checkLight() {
   int minutes_since_midnight = (Time.local() % 86400)/60;
 
   // ******************** Morning On ********************
-  int today_wake_time = wake_time;
-  // Weekend wake at 7:30am
-  if (isWeekend()) {
-    today_wake_time += (1 * hour_to_minute);
-  }
-  if ((minutes_since_midnight == today_wake_time) &&
-      !ZeroCrossDimmer_isDimming()) {
+  // Weekend wake an hour later
+  if ((((isWeekend() && minutes_since_midnight) == (today_wake_time + hour_to_minute)) ||
+     (!isWeekend() && (minutes_since_midnight == today_wake_time))) &&
+     !ZeroCrossDimmer_isDimming()) {
 
     ZeroCrossDimmer_startDimOn();
     Switch_lightOn();
@@ -110,26 +102,18 @@ void checkLight() {
   }
 
   // ******************** Evening On ********************
-  // 30 min before sunset trigger (also a hack)
-  if (sunset_minute < 30) {
-    if ((Time.hour() == (sunset_hour - 1)) && (Time.minute() == (sunset_minute + 30))) {
-      Switch_lightOn();
-    }
-  }
-  else {
-    if ((Time.hour() == sunset_hour) && (Time.minute() == (sunset_minute - 30))) {
-      Switch_lightOn();
-    }
+  // 30 min before sunset trigger
+  if (minutes_since_midnight == (sunset_time - 30)) {
+    ZeroCrossDimmer_startDimOn();
+    Switch_lightOn();
   }
 
   // ******************** Evening Off ********************
-  int today_sleep_time = sleep_time;
-  // Weekend night sleep at 10:30pm
-  if (isWeekendNight()) {
-    today_sleep_time += (1 * hour_to_minute);
-  }
-  if (minutes_since_midnight == today_sleep_time) {
-    ZeroCrossDimmer_startDimOff();
+  // Weekend night sleep an hour later
+  if (isWeekendNight() && (minutes_since_midnight == (today_sleep_time + hour_to_minute)) ||
+     (!isWeekendNight() && (minutes_since_midnight == today_sleep_time))) {
+      ZeroCrossDimmer_startDimOff();
+    }
   }
 }
 
