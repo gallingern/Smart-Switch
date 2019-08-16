@@ -1,3 +1,4 @@
+#include "Particle.h"
 #include "Switch.h"
 
 const int SWITCH1_PIN = D0;

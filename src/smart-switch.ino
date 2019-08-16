@@ -1,6 +1,6 @@
 #include <blynk.h>
 #include "Calendar.h"
-#include "Switch.h
+#include "Switch.h"
 #include "ZeroCrossDimmer.h"
 
 char auth[] = "4025c2c641f74330a7475890f4f42674";
@@ -11,6 +11,8 @@ int wake_hour = 6;
 int wake_minute = 30;
 int sleep_hour = 22; // 10pm
 int sleep_minute = 0;
+// replace time with std pair?
+// std::pair<int,int> wake_time (6, 30);
 BlynkTimer blynk_timer;
 
 
@@ -68,7 +70,7 @@ void updateBlynk() {
 
 
 void setup() {
-  ZeroCrossDimmer_init();
+  ZeroCrossDimmer_init(Switch_lightOff);
   Switch_init();
 
   Particle.variable("temp_f", &temp_f, INT);
@@ -91,23 +93,14 @@ void setup() {
 
 
 void checkLight() {
+  // ******************** Morning On ********************
   int today_wake_hour = wake_hour;
   int today_wake_minute = wake_minute;
-  int today_sleep_hour = sleep_hour;
-  int today_sleep_minute = sleep_minute;
-
   // Weekend wake at 7:30am
   if (isWeekend()) {
     today_wake_hour = 7;
     today_wake_minute = 30;
   }
-  // Weekend night sleep at 10:30pm
-  if (isWeekendNight()) {
-    today_sleep_hour = 22;
-    today_sleep_minute = 30;
-  }
-
-  // ******************** Morning On ********************
   if ((Time.hour() == today_wake_hour) &&
       (Time.minute() == today_wake_minute) &&
       (!ZeroCrossDimmer_isDimming())) {
@@ -122,9 +115,9 @@ void checkLight() {
     }
   }
 
+  // ******************** Morning Off ********************
   int morning_off_hour = 8;
   int morning_off_minute = 30;
-  // ******************** Morning Off ********************
   if ((Time.hour() == morning_off_hour) && (Time.minute() == morning_off_minute)) {
     Switch_lightOff();
     Switch_heatOff();
@@ -144,11 +137,15 @@ void checkLight() {
   }
 
   // ******************** Evening Off ********************
+  int today_sleep_hour = sleep_hour;
+  int today_sleep_minute = sleep_minute;
+  // Weekend night sleep at 10:30pm
+  if (isWeekendNight()) {
+    today_sleep_hour = 22;
+    today_sleep_minute = 30;
+  }
   if ((Time.hour() == today_sleep_hour) && (Time.minute() == today_sleep_minute)) {
-      Switch_lightOff();
-      // pass Switch_lightOff as function pointer
-      // call at the end of dim
-      // ZeroCrossDimmer_startDimOff()
+    ZeroCrossDimmer_startDimOff();
   }
 }
 
