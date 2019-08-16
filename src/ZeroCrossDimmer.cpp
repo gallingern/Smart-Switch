@@ -19,19 +19,22 @@ volatile int counter = 0;              // Variable to use as a counter volatile 
 volatile int dim_percentage = DIM_MIN; // Dimming level (0-128)  0 = on, 128 = 0ff
 
 callback_function switchLightOff;
+callback_function switchLightOn;
 
 IntervalTimer timer_triac;
 IntervalTimer timer_dimmer;
 elapsedMillis time_elapsed;
 
 
-void ZeroCrossDimmer_init(callback_function _switchLightOff) {
+void ZeroCrossDimmer_init(callback_function _switchLightOff,
+                          callback_function _switchLightOn) {
   pinMode(PIN_ZERO_CROSS, INPUT);
   pinMode(AC_PIN, OUTPUT);
   timer_triac.begin(ZeroCrossDimmer_enableTRIAC, triac_period, uSec, TIMER5);
   timer_dimmer.begin(ZeroCrossDimmer_dim, dimmer_period, hmSec);
   attachInterrupt(PIN_ZERO_CROSS, ZeroCrossDimmer_detectCross, RISING);
   switchLightOff = _switchLightOff;
+  switchLightOn = _switchLightOn;
 }
 
 
@@ -62,6 +65,7 @@ void ZeroCrossDimmer_startDimOn() {
   dim_percentage = DIM_THRESHOLD;
   time_elapsed = 0;
   dim_on = true;
+  switchLightOn();
 }
 
 

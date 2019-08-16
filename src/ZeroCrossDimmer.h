@@ -2,7 +2,8 @@
 #define __ZEROCROSSDIMMER_H__
 
 typedef void (*callback_function)(void);
-void ZeroCrossDimmer_init(callback_function _switchLightOff);
+void ZeroCrossDimmer_init(callback_function _switchLightOff,
+                          callback_function _switchLightOn);
 void ZeroCrossDimmer_detectCross();
 void ZeroCrossDimmer_enableTRIAC();
 void ZeroCrossDimmer_startDimOn();
