@@ -7,12 +7,10 @@ char auth[] = "4025c2c641f74330a7475890f4f42674";
 int temp_f = 100;
 int sunset_hour = 17; // 5pm
 int sunset_minute = 0;
-int wake_hour = 6;
-int wake_minute = 30;
-int sleep_hour = 22; // 10pm
-int sleep_minute = 0;
-// replace time with std pair?
-// std::pair<int,int> wake_time (6, 30);
+// Time in minutes past midnight
+const int hour_to_minute = 60;
+int wake_time = 6 * hour_to_minute + 30; // 6:30am
+int sleep_time = 22 * hour_to_minute; // 10pm
 BlynkTimer blynk_timer;
 
 
@@ -39,10 +37,8 @@ BLYNK_WRITE(V2) {
 }
 BLYNK_WRITE(V3) {
   TimeInputParam t(param);
-  wake_hour = t.getStartHour();
-  wake_minute = t.getStartMinute();
-  sleep_hour = t.getStopHour();
-  sleep_minute = t.getStopMinute();
+  wake_time = t.getStartHour() * hour_to_minute + t.getStartMinute();
+  sleep_time = t.getStopHour() * hour_to_minute + t.getStopMinute();
 }
 BLYNK_WRITE(V4) {
   ZeroCrossDimmer_setDimPercentage(param.asInt());
@@ -59,9 +55,9 @@ void updateBlynk() {
   // timezone
   char tz[] = "US/Pacific";
   //seconds from the start of a day. 0 - min, 86399 - max
-  int startAt = ((wake_hour*60) + wake_minute) * 60;
+  int startAt = wake_time * 60;
   //seconds from the start of a day. 0 - min, 86399 - max
-  int stopAt = ((sleep_hour*60) + sleep_minute) * 60;
+  int stopAt = sleep_time * 60;
   Blynk.virtualWrite(V3, startAt, stopAt, tz);
 
   // dimmer
@@ -72,14 +68,6 @@ void updateBlynk() {
 void setup() {
   ZeroCrossDimmer_init(Switch_lightOff);
   Switch_init();
-
-  Particle.variable("temp_f", &temp_f, INT);
-  Particle.variable("sunset_hr", &sunset_hour, INT);
-  Particle.variable("sunset_min", &sunset_minute, INT);
-  Particle.variable("wake_hour", &wake_hour, INT);
-  Particle.variable("wake_minute", &wake_minute, INT);
-  Particle.variable("sleep_hour", &sleep_hour, INT);
-  Particle.variable("sleep_minute", &sleep_minute, INT);
 
   Particle.subscribe("temp", myTempHandler, MY_DEVICES);
   Particle.subscribe("hour", myHourHandler, MY_DEVICES);
@@ -93,17 +81,16 @@ void setup() {
 
 
 void checkLight() {
+  int minutes_since_midnight = (Time.local() % 86400)/60;
+
   // ******************** Morning On ********************
-  int today_wake_hour = wake_hour;
-  int today_wake_minute = wake_minute;
+  int today_wake_time = wake_time;
   // Weekend wake at 7:30am
   if (isWeekend()) {
-    today_wake_hour = 7;
-    today_wake_minute = 30;
+    today_wake_time += (1 * hour_to_minute);
   }
-  if ((Time.hour() == today_wake_hour) &&
-      (Time.minute() == today_wake_minute) &&
-      (!ZeroCrossDimmer_isDimming())) {
+  if ((minutes_since_midnight == today_wake_time) &&
+      !ZeroCrossDimmer_isDimming()) {
 
     ZeroCrossDimmer_startDimOn();
     Switch_lightOn();
@@ -116,9 +103,8 @@ void checkLight() {
   }
 
   // ******************** Morning Off ********************
-  int morning_off_hour = 8;
-  int morning_off_minute = 30;
-  if ((Time.hour() == morning_off_hour) && (Time.minute() == morning_off_minute)) {
+  int morning_off_time = 8 * hour_to_minute + 30; // 8:30am
+  if (minutes_since_midnight == morning_off_time) {
     Switch_lightOff();
     Switch_heatOff();
   }
@@ -137,14 +123,12 @@ void checkLight() {
   }
 
   // ******************** Evening Off ********************
-  int today_sleep_hour = sleep_hour;
-  int today_sleep_minute = sleep_minute;
+  int today_sleep_time = sleep_time;
   // Weekend night sleep at 10:30pm
   if (isWeekendNight()) {
-    today_sleep_hour = 22;
-    today_sleep_minute = 30;
+    today_sleep_time += (1 * hour_to_minute);
   }
-  if ((Time.hour() == today_sleep_hour) && (Time.minute() == today_sleep_minute)) {
+  if (minutes_since_midnight == today_sleep_time) {
     ZeroCrossDimmer_startDimOff();
   }
 }
