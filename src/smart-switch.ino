@@ -116,10 +116,10 @@ void checkLight() {
   if ((isWeekendNight() && (minutes_since_midnight == (sleep_time + hour_to_minute))) ||
      (!isWeekendNight() && (minutes_since_midnight == sleep_time))) {
 
-      ZeroCrossDimmer_startDimOff();
-    }
+    ZeroCrossDimmer_startDimOff();
   }
 }
+
 
 
 void loop() {
