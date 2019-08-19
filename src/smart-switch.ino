@@ -11,7 +11,7 @@ const int hour_to_minute = 60;
 int wake_time = 6 * hour_to_minute + 30;   // 6:30am
 int morning_off_time = 8 * hour_to_minute; // 8am
 int sunset_time = (isDaylightSavingsTime() ? 19 : 17) * hour_to_minute; // 5-7pm
-int sleep_time = 22 * hour_to_minute;      // 10pm
+int sleep_time = 21 * hour_to_minute + 30;      // 9:30pm
 BlynkTimer blynk_timer;
 
 
