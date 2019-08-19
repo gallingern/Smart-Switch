@@ -9,7 +9,8 @@ const int PIN_ZERO_CROSS = D2;         // Interrrupt pin
 // Min/Max depends on your circuit
 // This is for my bedside LED lights
 const int DIM_MIN = 0;                 // DIM_MIN == light on
-const int DIM_THRESHOLD = 100;         // on to off
+const int DIM_THRESHOLD_ON = 70;
+const int DIM_THRESHOLD_OFF = 100;
 const int DIM_MAX = 128;               // DIM_MAX == lights off
 const int MINUTE = 60000;              // minute in milliseconds
 volatile bool zero_cross = false;      // Boolean to store a "switch" to tell us if we have crossed zero
@@ -62,7 +63,7 @@ void ZeroCrossDimmer_enableTRIAC() {
 
 
 void ZeroCrossDimmer_startDimOn() {
-  dim_percentage = DIM_THRESHOLD;
+  dim_percentage = DIM_THRESHOLD_OFF;
   time_elapsed = 0;
   dim_on = true;
   switchLightOn();
@@ -70,7 +71,7 @@ void ZeroCrossDimmer_startDimOn() {
 
 
 void ZeroCrossDimmer_startDimOff() {
-  dim_percentage = DIM_MIN;
+  dim_percentage = DIM_THRESHOLD_ON;
   time_elapsed = 0;
   dim_off = true;
 }
@@ -97,7 +98,7 @@ void ZeroCrossDimmer_dim() {
     }
     else {
       // dim one unit per minute
-      dim_percentage = DIM_THRESHOLD - (time_elapsed/MINUTE);
+      dim_percentage = DIM_THRESHOLD_OFF - (time_elapsed/MINUTE);
     }
   }
 
@@ -111,7 +112,7 @@ void ZeroCrossDimmer_dim() {
     }
     else {
       // dim one unit per minute
-      dim_percentage = DIM_MIN + (time_elapsed/MINUTE);
+      dim_percentage = DIM_THRESHOLD_ON + (time_elapsed/MINUTE);
     }
   }
 }
