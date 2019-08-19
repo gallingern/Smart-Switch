@@ -77,55 +77,55 @@ void setup() {
 }
 
 
-void checkLight() {
+void switchStateMachine() {
   int minutes_since_midnight = (Time.local() % 86400)/60;
 
-  // ******************** Morning On ********************
-  // Weekend wake an hour later
-  if (((isWeekend() && (minutes_since_midnight == (wake_time + hour_to_minute))) ||
-      (!isWeekend() && (minutes_since_midnight == wake_time))) &&
-       !ZeroCrossDimmer_isDimming()) {
+  // Don't interrupt dim on/off
+  if (!ZeroCrossDimmer_isDimming()) {
 
-    ZeroCrossDimmer_startDimOn();
+    // ******************** Morning On ********************
+    // Weekend morning wake an hour later
+    if ((isWeekend() && (minutes_since_midnight == (wake_time + hour_to_minute))) ||
+        (!isWeekend() && (minutes_since_midnight == wake_time))) {
 
-    // heat
-    if (temp_f < threshold_f) {
-      Switch_heatOn();
+      ZeroCrossDimmer_startDimOn();
+
+      // heat
+      if (temp_f < threshold_f) {
+        Switch_heatOn();
+      }
+    }
+
+    // ******************** Morning Off ********************
+    if (minutes_since_midnight == morning_off_time) {
+
+      ZeroCrossDimmer_startDimOff();
+
+      Switch_heatOff();
+    }
+
+    // ******************** Evening On ********************
+    // 30 min before sunset trigger
+    if (minutes_since_midnight == (sunset_time - (hour_to_minute / 2))) {
+
+      ZeroCrossDimmer_startDimOn();
+    }
+
+    // ******************** Evening Off ********************
+    // Weekend night sleep an hour later
+    if ((isWeekendNight() && (minutes_since_midnight == (sleep_time + hour_to_minute))) ||
+       (!isWeekendNight() && (minutes_since_midnight == sleep_time))) {
+
+      ZeroCrossDimmer_startDimOff();
     }
   }
-
-  // ******************** Morning Off ********************
-  if ((minutes_since_midnight == morning_off_time) &&
-      !ZeroCrossDimmer_isDimming()) {
-
-    ZeroCrossDimmer_startDimOff();
-
-    Switch_heatOff();
-  }
-
-  // ******************** Evening On ********************
-  // 30 min before sunset trigger
-  if ((minutes_since_midnight == (sunset_time - (hour_to_minute / 2))) &&
-      !ZeroCrossDimmer_isDimming()) {
-
-    ZeroCrossDimmer_startDimOn();
-  }
-
-  // ******************** Evening Off ********************
-  // Weekend night sleep an hour later
-  if ((isWeekendNight() && (minutes_since_midnight == (sleep_time + hour_to_minute))) ||
-     (!isWeekendNight() && (minutes_since_midnight == sleep_time))) {
-
-    ZeroCrossDimmer_startDimOff();
-  }
 }
-
 
 
 void loop() {
   Time.zone(isDaylightSavingsTime() ? PDT_OFFSET : PST_OFFSET);
 
-  checkLight();
+  switchStateMachine();
 
   Blynk.run();
   blynk_timer.run();

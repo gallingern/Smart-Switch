@@ -10,6 +10,8 @@ bool switch2_heat = false;
 void Switch_init() {
   pinMode(SWITCH1_PIN, OUTPUT);
   pinMode(SWITCH2_PIN, OUTPUT);
+  Switch_lightOff();
+  Switch_heatOff();
 }
 
 void Switch_lightOn() {
