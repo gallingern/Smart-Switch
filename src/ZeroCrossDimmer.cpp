@@ -91,7 +91,7 @@ void ZeroCrossDimmer_setDimPercentage(int percentage) {
 void ZeroCrossDimmer_dim() {
   if (dim_on) {
     // Stop after 30 minutes
-    if (time_elapsed == (MINUTE * 30)) {
+    if (time_elapsed >= (MINUTE * 30)) {
       dim_percentage = DIM_MIN;
       time_elapsed = 0;
       dim_on = false;
@@ -104,7 +104,7 @@ void ZeroCrossDimmer_dim() {
 
   if (dim_off) {
     // Stop after 30 minutes
-    if (time_elapsed == (MINUTE * 30)) {
+    if (time_elapsed >= (MINUTE * 30)) {
       dim_percentage = DIM_MAX;
       time_elapsed = 0;
       dim_off = false;
