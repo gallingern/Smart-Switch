@@ -9,7 +9,7 @@ const int PIN_ZERO_CROSS = D2;         // Interrrupt pin
 // Min/Max depends on your circuit
 // This is for my bedside LED lights
 const int DIM_MIN = 0;                 // DIM_MIN == light on
-const int DIM_THRESHOLD_ON = 70;
+const int DIM_THRESHOLD_ON = 50;
 const int DIM_THRESHOLD_OFF = 100;
 const int DIM_MAX = 128;               // DIM_MAX == lights off
 const int MINUTE = 60000;              // minute in milliseconds
