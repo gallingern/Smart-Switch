@@ -21,6 +21,7 @@ volatile int dim_percentage = DIM_MIN; // Dimming level (0-128)  0 = on, 128 = 0
 
 callback_function switchLightOff;
 callback_function switchLightOn;
+callback_status switchLightState;
 
 IntervalTimer timer_triac;
 IntervalTimer timer_dimmer;
@@ -28,7 +29,8 @@ elapsedMillis time_elapsed;
 
 
 void ZeroCrossDimmer_init(callback_function _switchLightOff,
-                          callback_function _switchLightOn) {
+                          callback_function _switchLightOn,
+                          callback_status _switchLightState) {
   pinMode(PIN_ZERO_CROSS, INPUT);
   pinMode(AC_PIN, OUTPUT);
   timer_triac.begin(ZeroCrossDimmer_enableTRIAC, triac_period, uSec, TIMER5);
@@ -36,6 +38,7 @@ void ZeroCrossDimmer_init(callback_function _switchLightOff,
   attachInterrupt(PIN_ZERO_CROSS, ZeroCrossDimmer_detectCross, RISING);
   switchLightOff = _switchLightOff;
   switchLightOn = _switchLightOn;
+  switchLightState = _switchLightState;
 }
 
 
@@ -90,8 +93,9 @@ void ZeroCrossDimmer_setDimPercentage(int percentage) {
 
 void ZeroCrossDimmer_dim() {
   if (dim_on) {
-    // Stop after 30 minutes
-    if (time_elapsed >= (MINUTE * 30)) {
+    // Stop after 30 minutes or after manual switch off
+    if ((time_elapsed >= (MINUTE * 30)) ||
+        (!switchLightState())) {
       dim_percentage = DIM_MIN;
       time_elapsed = 0;
       dim_on = false;
@@ -103,8 +107,9 @@ void ZeroCrossDimmer_dim() {
   }
 
   if (dim_off) {
-    // Stop after 30 minutes
-    if (time_elapsed >= (MINUTE * 30)) {
+    // Stop after 30 minutes or after manual switch off
+    if ((time_elapsed >= (MINUTE * 30)) ||
+        (!switchLightState())) {
       dim_percentage = DIM_MAX;
       time_elapsed = 0;
       dim_off = false;

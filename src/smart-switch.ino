@@ -64,7 +64,7 @@ void updateBlynk() {
 
 
 void setup() {
-  ZeroCrossDimmer_init(Switch_lightOff, Switch_lightOn);
+  ZeroCrossDimmer_init(Switch_lightOff, Switch_lightOn, Switch_getLightState);
   Switch_init();
 
   Particle.subscribe("temp", myTempHandler, MY_DEVICES);
