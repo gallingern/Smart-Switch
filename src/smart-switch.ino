@@ -8,7 +8,7 @@ int temp_f = 100;
 int threshold_f = 60; // degrees f
 // Time in minutes past midnight
 const int hour_to_minute = 60;
-int wake_time = 6 * hour_to_minute + 30;   // 6:30am
+int wake_time = 6 * hour_to_minute;   // 6:00am
 int morning_off_time = 8 * hour_to_minute; // 8am
 int sunset_time = (isDaylightSavingsTime() ? 19 : 17) * hour_to_minute; // 5-7pm
 int sleep_time = 21 * hour_to_minute + 30;      // 9:30pm
