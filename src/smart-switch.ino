@@ -83,10 +83,8 @@ void switchStateMachine() {
   // Don't interrupt dim on/off
   if (!ZeroCrossDimmer_isDimming()) {
 
-    // ******************** Morning On ********************
-    // Weekend morning wake an hour later
-    if ((isWeekend() && (minutes_since_midnight == (wake_time + hour_to_minute))) ||
-        (!isWeekend() && (minutes_since_midnight == wake_time))) {
+    // ******************** Weekday Morning On ********************
+    if (!isWeekend() && (minutes_since_midnight == wake_time)) {
 
       ZeroCrossDimmer_startDimOn();
 
